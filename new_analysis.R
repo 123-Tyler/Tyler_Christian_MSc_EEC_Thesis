@@ -150,7 +150,7 @@ print(aggregated_data)
 
 # Standardize the data
 data_scaled <- scale(aggregated_data %>%
-                           select(!c(audio_marker:segment)))
+                       select(c(7,9:14,16:21,23:27)))
 
 # Calculate the distance matrix
 dist_matrix <- dist(data_scaled, 
@@ -163,16 +163,16 @@ hc <- hclust(dist_matrix,
 # Set colour groups per call
 aggregated_data <- aggregated_data %>% 
   mutate(color_call = ifelse(call == "CA",
-                             "red",
+                             "#88ccee",
                              ifelse(call == "CC",
-                                    "yellow",
+                                    "#661100",
                                     ifelse(call == "DW",
-                                           "green",
+                                           "#117733",
                                            ifelse(call == "HA",
-                                                  "blue",
+                                                  "#999933",
                                                   ifelse(call == "NC",
-                                                         "pink",
-                                                         "brown" ### "TQ"
+                                                         "#e31a1c",
+                                                         "#aa4499" ### "TQ"
                                                   )
                                            )
                                     )
@@ -181,22 +181,282 @@ aggregated_data <- aggregated_data %>%
   ) %>% 
   mutate(color_call = as.factor(color_call))
 
+
 # Enhanced dendrogram visualization with color-coded nodes by call 
 # (only the colours at the bottom have any meaning, see attached ppt for interpretation)
-fviz_dend(
+dendrogram <- 
+  fviz_dend(
   hc,
-  k = length(unique(aggregated_data$color_call)),
   rect = FALSE,
-  rect_fill = FALSE,
-  rect_border = "jco",
   cex = 0.5,
-  k_colors = "jco",
-  main = "Dendrogram",
+  lwd = 0.5,
+  k_colors = "black",
   labels_track_height = 0.8,
-  palette = "jco",
   show_labels = TRUE,
   label_cols = aggregated_data$color_call
-)
+) +
+  theme(plot.title = element_blank()) +
+  annotate(
+    "rect",
+    xmin = 0,
+    xmax = 45,
+    ymin = -2,
+    ymax = -1.1,
+    alpha = .3,
+    fill = "#88ccee"
+  ) +
+  annotate(
+    "text",
+    x = 22.5,
+    y = -1.55,
+    size = 2.5,
+    label = "CA"
+  ) +
+  annotate(
+    "rect",
+    xmin = 45,
+    xmax = 56,
+    ymin = -2,
+    ymax = -1.1,
+    alpha = .3,
+    fill = "#661100"
+  ) +
+  annotate(
+    "text",
+    x = 50.5,
+    y = -1.55,
+    size = 2.5,
+    label = "CC"
+  ) +
+  annotate(
+    "rect",
+    xmin = 56,
+    xmax = 60,
+    ymin = -2,
+    ymax = -1.1,
+    alpha = .3,
+    fill = "#88ccee"
+  ) +
+  annotate(
+    "text",
+    x = 58,
+    y = -1.55,
+    size = 2.5,
+    label = "CA"
+  ) +
+  annotate(
+    "rect",
+    xmin = 60,
+    xmax = 96,
+    ymin = -2,
+    ymax = -1.1,
+    alpha = .3,
+    fill = "#661100"
+  ) +
+  annotate(
+    "text",
+    x = 78,
+    y = -1.55,
+    size = 2.5,
+    label = "CC"
+  ) +
+  annotate(
+    "rect",
+    xmin = 96,
+    xmax = 101,
+    ymin = -2,
+    ymax = -1.1,
+    alpha = .3,
+    fill = "#e31a1c"
+  ) +
+  annotate(
+    "text",
+    x = 98.5,
+    y = -1.55,
+    size = 2.5,
+    label = "NC"
+  ) +
+  annotate(
+    "rect",
+    xmin = 101,
+    xmax = 117,
+    ymin = -2,
+    ymax = -1.1,
+    alpha = .3,
+    fill = "#88ccee"
+  ) +
+  annotate(
+    "text",
+    x = 109,
+    y = -1.55,
+    size = 2.5,
+    label = "CA"
+  ) +
+  annotate(
+    "rect",
+    xmin = 117,
+    xmax = 129,
+    ymin = -2,
+    ymax = -1.1,
+    alpha = .3,
+    fill = "#117733"
+  ) +
+  annotate(
+    "text",
+    x = 123,
+    y = -1.55,
+    size = 2.5,
+    label = "DW"
+  ) +
+  annotate(
+    "rect",
+    xmin = 129,
+    xmax = 137,
+    ymin = -2,
+    ymax = -1.1,
+    alpha = .3,
+    fill = "#999933"
+  )  +
+  annotate(
+    "text",
+    x = 133,
+    y = -1.55,
+    size = 2.5,
+    label = "HA"
+  ) +
+  annotate(
+    "rect",
+    xmin = 137,
+    xmax = 142,
+    ymin = -2,
+    ymax = -1.1,
+    alpha = .3,
+    fill = "#aa4499"
+  ) +
+  annotate(
+    "text",
+    x = 139.5,
+    y = -1.55,
+    size = 2.5,
+    label = "TQ"
+  ) +
+  annotate(
+    "rect",
+    xmin = 142,
+    xmax = 146,
+    ymin = -2,
+    ymax = -1.1,
+    alpha = .3,
+    fill = "#e31a1c"
+  ) +
+  annotate(
+    "text",
+    x = 144,
+    y = -1.55,
+    size = 2.5,
+    label = "NC"
+  ) +
+  annotate(
+    "rect",
+    xmin = 146,
+    xmax = 159,
+    ymin = -2,
+    ymax = -1.1,
+    alpha = .3,
+    fill = "#aa4499"
+  ) +
+  annotate(
+    "text",
+    x = 152.5,
+    y = -1.55,
+    size = 2.5,
+    label = "TQ"
+  ) +
+  annotate(
+    "rect",
+    xmin = 159,
+    xmax = 167,
+    ymin = -2,
+    ymax = -1.1,
+    alpha = .3,
+    fill = "#e31a1c"
+  ) +
+  annotate(
+    "text",
+    x = 163,
+    y = -1.55,
+    size = 2.5,
+    label = "NC"
+  ) +
+  annotate(
+    "rect",
+    xmin = 158,
+    xmax = 169,
+    ymin = 26.5,
+    ymax = 33.5,
+    color = "black",
+    fill = "white"
+  ) +
+  annotate(
+    "text",
+    x = 163,
+    y = 33,
+    size = 3.7,
+    label = 'bold(" Key:")',
+    parse = TRUE
+  ) +
+  annotate(
+    "text",
+    x = 163,
+    y = 32,
+    size = 3.7,
+    label = "CC",
+    color = "#661100"
+  ) +
+  annotate(
+    "text",
+    x = 163,
+    y = 31,
+    size = 3.7,
+    label = "NC",
+    color = "#e31a1c"
+  ) +
+  annotate(
+    "text",
+    x = 163,
+    y = 30,
+    size = 3.7,
+    label = "CA",
+    color = "#88ccee"
+  ) +
+  annotate(
+    "text",
+    x = 163,
+    y = 29,
+    size = 3.7,
+    label = "TQ",
+    color = "#aa4499"
+  ) +
+  annotate(
+    "text",
+    x = 163,
+    y = 28,
+    size = 3.7,
+    label = "HA",
+    color = "#999933"
+  ) +
+  annotate(
+    "text",
+    x = 163,
+    y = 27,
+    size = 3.7,
+    label = "DW",
+    color = "#117733"
+  ) 
+
+dendrogram
+
+ggsave("dendrogram.jpg", width = 6.8, height = 7.5, units = "in")
 
 coph_corr <- cor(cophenetic(hc), dist(aggregated_data))
 coph_corr # acceptable
@@ -361,6 +621,7 @@ before_after_plot
 
 # takes mean call frequency for all wild stimuli on lundy before and after appearance
 
+### repeat for each type of wild stimuli???
 
 # Calls over time ---------------------------------------------------------
 
