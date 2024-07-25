@@ -40,7 +40,9 @@ koe_data <- read.csv("koe_song_details.csv", na.strings = "") %>%
   mutate(
     audio_marker = as.factor(audio_marker),
     before_after = as.factor(before_after),
-    site = as.factor(site)
+    site = as.factor(site),
+    site = gsub(x = site, pattern = "ascot", replacement = "mainland"),
+    site = gsub(x = site, pattern = "nan", replacement = "mainland")
   ) %>%
   mutate(
     CC_per_time = CC / duration,
@@ -59,7 +61,9 @@ behaviour_data <- read.csv("behavioural_data.csv") %>%
     taxidermy = as.factor(taxidermy),
     audio_marker = as.factor(audio_marker),
     time = as.factor(time),
-    taxidermy_present = as.factor(taxidermy_present)
+    taxidermy_present = as.factor(taxidermy_present),
+    site = gsub(x = site, pattern = "ascot", replacement = "mainland"),
+    site = gsub(x = site, pattern = "nan", replacement = "mainland")
   ) %>%
   filter(usable_stimuli == "x") %>%
   select(
@@ -88,6 +92,8 @@ calls_long <- read.csv("koe_song_details.csv", na.strings = "") %>%
   mutate(
     across(call_type, ~ str_remove_all(., '"')),
     across(call_type, ~ str_remove_all(., '_')),
+    site = gsub(x = site, pattern = "ascot", replacement = "mainland"),
+    site = gsub(x = site, pattern = "nan", replacement = "mainland")
   ) %>%
   filter(site == "lundy") %>% 
   select(audio_marker, before_after, site, call_type, duration) %>%
@@ -203,7 +209,9 @@ dendrogram <-
     ymin = -2,
     ymax = -1.1,
     alpha = .3,
-    fill = "#88ccee"
+    fill = "#88ccee",
+    color = "black",
+    lwd = 0.3
   ) +
   annotate(
     "text",
@@ -215,47 +223,17 @@ dendrogram <-
   annotate(
     "rect",
     xmin = 45,
-    xmax = 56,
-    ymin = -2,
-    ymax = -1.1,
-    alpha = .3,
-    fill = "#661100"
-  ) +
-  annotate(
-    "text",
-    x = 50.5,
-    y = -1.55,
-    size = 2.5,
-    label = "CC"
-  ) +
-  annotate(
-    "rect",
-    xmin = 56,
-    xmax = 60,
-    ymin = -2,
-    ymax = -1.1,
-    alpha = .3,
-    fill = "#88ccee"
-  ) +
-  annotate(
-    "text",
-    x = 58,
-    y = -1.55,
-    size = 2.5,
-    label = "CA"
-  ) +
-  annotate(
-    "rect",
-    xmin = 60,
     xmax = 96,
     ymin = -2,
     ymax = -1.1,
     alpha = .3,
-    fill = "#661100"
+    fill = "#661100",
+    color = "black",
+    lwd = 0.3
   ) +
   annotate(
     "text",
-    x = 78,
+    x = 70.5,
     y = -1.55,
     size = 2.5,
     label = "CC"
@@ -267,7 +245,9 @@ dendrogram <-
     ymin = -2,
     ymax = -1.1,
     alpha = .3,
-    fill = "#e31a1c"
+    fill = "#e31a1c",
+    color = "black",
+    lwd = 0.3
   ) +
   annotate(
     "text",
@@ -283,7 +263,9 @@ dendrogram <-
     ymin = -2,
     ymax = -1.1,
     alpha = .3,
-    fill = "#88ccee"
+    fill = "#88ccee",
+    color = "black",
+    lwd = 0.3
   ) +
   annotate(
     "text",
@@ -295,31 +277,35 @@ dendrogram <-
   annotate(
     "rect",
     xmin = 117,
-    xmax = 129,
+    xmax = 127,
     ymin = -2,
     ymax = -1.1,
     alpha = .3,
-    fill = "#117733"
+    fill = "#117733",
+    color = "black",
+    lwd = 0.3
   ) +
   annotate(
     "text",
-    x = 123,
+    x = 122,
     y = -1.55,
     size = 2.5,
     label = "DW"
   ) +
   annotate(
     "rect",
-    xmin = 129,
+    xmin = 127,
     xmax = 137,
     ymin = -2,
     ymax = -1.1,
     alpha = .3,
-    fill = "#999933"
+    fill = "#999933",
+    color = "black",
+    lwd = 0.3
   )  +
   annotate(
     "text",
-    x = 133,
+    x = 132,
     y = -1.55,
     size = 2.5,
     label = "HA"
@@ -331,7 +317,9 @@ dendrogram <-
     ymin = -2,
     ymax = -1.1,
     alpha = .3,
-    fill = "#aa4499"
+    fill = "#aa4499",
+    color = "black",
+    lwd = 0.3
   ) +
   annotate(
     "text",
@@ -347,7 +335,9 @@ dendrogram <-
     ymin = -2,
     ymax = -1.1,
     alpha = .3,
-    fill = "#e31a1c"
+    fill = "#e31a1c",
+    color = "black",
+    lwd = 0.3
   ) +
   annotate(
     "text",
@@ -363,7 +353,9 @@ dendrogram <-
     ymin = -2,
     ymax = -1.1,
     alpha = .3,
-    fill = "#aa4499"
+    fill = "#aa4499",
+    color = "black",
+    lwd = 0.3
   ) +
   annotate(
     "text",
@@ -379,7 +371,9 @@ dendrogram <-
     ymin = -2,
     ymax = -1.1,
     alpha = .3,
-    fill = "#e31a1c"
+    fill = "#e31a1c",
+    color = "black",
+    lwd = 0.3
   ) +
   annotate(
     "text",
@@ -390,12 +384,67 @@ dendrogram <-
   ) +
   annotate(
     "rect",
+    xmin = 0,
+    xmax = 45,
+    ymin = -3.2,
+    ymax = -2.3,
+    alpha = .5,
+    fill = "white",
+    color = "black",
+    lwd = 0.3
+  ) +
+  annotate(
+    "text",
+    x = 22.5,
+    y = -2.75,
+    size = 2.5,
+    label = "CA"
+  ) +
+  annotate(
+    "rect",
+    xmin = 45,
+    xmax = 96,
+    ymin = -3.2,
+    ymax = -2.3,
+    alpha = .5,
+    fill = "white",
+    color = "black",
+    lwd = 0.3
+  ) +
+  annotate(
+    "text",
+    x = 70.5,
+    y = -2.75,
+    size = 2.5,
+    label = "CC"
+  ) +
+  annotate(
+    "rect",
+    xmin = 96,
+    xmax = 167,
+    ymin = -3.2,
+    ymax = -2.3,
+    alpha = .5,
+    fill = "white",
+    color = "black",
+    lwd = 0.3
+  ) +
+  annotate(
+    "text",
+    x = 131.5,
+    y = -2.75,
+    size = 2.5,
+    label = "Other"
+  ) +
+  annotate(
+    "rect",
     xmin = 158,
     xmax = 169,
     ymin = 26.5,
     ymax = 33.5,
     color = "black",
-    fill = "white"
+    fill = "white",
+    lwd = 0.3
   ) +
   annotate(
     "text",
@@ -452,11 +501,25 @@ dendrogram <-
     size = 3.7,
     label = "DW",
     color = "#117733"
-  ) 
+  ) +
+  annotate(
+    "text",
+    x = -5.1,
+    y = -1.55,
+    size = 2.5,
+    label = "Minor"
+  ) +
+  annotate(
+    "text",
+    x = -5.1,
+    y = -2.75,
+    size = 2.5,
+    label = "Major"
+  )
 
 dendrogram
 
-ggsave("dendrogram.jpg", width = 6.8, height = 7.5, units = "in")
+ggsave("dendrogram.jpg", width = 6.8, height = 6.5, units = "in")
 
 coph_corr <- cor(cophenetic(hc), dist(aggregated_data))
 coph_corr # acceptable
@@ -467,9 +530,6 @@ coph_corr # acceptable
 # 0.5-0.75 acceptable
 # 0.75-1.0 very good
 
-
-
-
 # LM ----------------------------------------------------------------------
 
 plot(combined_data$CC_per_time)
@@ -478,7 +538,7 @@ plot(combined_data$CA_per_time)
 plot(combined_data$HA_per_time)
 plot(combined_data$TQ_per_time)
 plot(combined_data$DW_per_time)
-# not normally distributed, therfore use GLM
+# not normally distributed, therefore use GLM
 
 combined_data_no_tax <- combined_data %>% 
   filter(open == 0)
@@ -491,7 +551,7 @@ summary(glm(combined_data$TQ_per_time ~ combined_data$before_after))
 summary(glm(combined_data$DW_per_time ~ combined_data$before_after))
 
 combined_data_long <- combined_data %>% 
-  group_by(audio_marker, before_after) %>% 
+  group_by(audio_marker, before_after, site) %>% 
   mutate(wild_starling = ifelse(wild_starling == 0,
                                 NA,
                                 "starling"),
@@ -507,10 +567,22 @@ combined_data_long <- combined_data %>%
          human_disturbance = ifelse(human_disturbance == 0,
                                     NA,
                                     "human")) %>% 
-  pivot_longer(cols = wild_starling:human_disturbance, 
+  pivot_longer(cols = c(wild_starling:human_disturbance, taxidermy_present), 
                names_to = "stimuli",
-               values_to = "stimuli_type") %>% 
-  na.omit()
+               values_to = "stimuli_type") %>%
+  na.omit() %>% 
+  mutate(taxidermy_wild = ifelse(stimuli_type == "sparrow_taxidermy",
+                                 "taxidermy",
+                                 ifelse(stimuli_type == "woodpecker_taxidermy",
+                                        "taxidermy",
+                                        ifelse(stimuli_type == "starling_taxidermy",
+                                               "taxidermy",
+                                               ifelse(stimuli_type == "sparrowhawk_taxidermy",
+                                                      "taxidermy",
+                                                      ifelse(stimuli_type == "empty_taxidermy",
+                                                             "taxidermy",
+                                                             "wild")))))) %>% 
+  ungroup()
 
 combined_data_numeric_stimuli <- combined_data %>% 
   mutate(taxidermy_present = ifelse(taxidermy_present == "starling_taxidermy",
@@ -588,12 +660,14 @@ lrtest(CC_model2, CC_model4)
 # explain taxidermy and stimuli may impact behavior and are thus random variables
 # site may have some impacts and is thus random (link to potential island effect but not too much detail)
 
-CC_model <- lmer(CC_per_time ~ before_after + (1|taxidermy_present) * (1 | stimuli_type) + (1|site), data = combined_data_long)
-NC_model <- lmer(NC_per_time ~ before_after + (1|taxidermy_present) * (1 | stimuli_type) + (1|site), data = combined_data_long)
-TQ_model <- lmer(TQ_per_time ~ before_after + (1|taxidermy_present) * (1 | stimuli_type) + (1|site), data = combined_data_long)
-HA_model <- lmer(HA_per_time ~ before_after + (1|taxidermy_present) * (1 | stimuli_type) + (1|site), data = combined_data_long)
-CA_model <- lmer(CA_per_time ~ before_after + (1|taxidermy_present) * (1 | stimuli_type) + (1|site), data = combined_data_long)
-DW_model <- lmer(DW_per_time ~ before_after + (1|taxidermy_present) * (1 | stimuli_type) + (1|site), data = combined_data_long)
+CC_model <- lmer(CC_per_time ~ before_after + (1|taxidermy_wild) * (1 | stimuli_type) + (1|site), data = combined_data_long)
+NC_model <- lmer(NC_per_time ~ before_after + (1|taxidermy_wild) * (1 | stimuli_type) + (1|site), data = combined_data_long)
+TQ_model <- lmer(TQ_per_time ~ before_after + (1|taxidermy_wild) * (1 | stimuli_type) + (1|site), data = combined_data_long)
+HA_model <- lmer(HA_per_time ~ before_after + (1|taxidermy_wild) * (1 | stimuli_type) + (1|site), data = combined_data_long)
+CA_model <- lmer(CA_per_time ~ before_after + (1|taxidermy_wild) * (1 | stimuli_type) + (1|site), data = combined_data_long)
+DW_model <- lmer(DW_per_time ~ before_after + (1|taxidermy_wild) * (1 | stimuli_type) + (1|site), data = combined_data_long)
+
+CC_model <- lmer(CC ~ before_after + (1|taxidermy_present), data = combined_data)
 
 summary(CC_model)
 summary(NC_model)
@@ -655,28 +729,48 @@ summary(lm(time_data_tax$n[time_data_tax$call_type=="DW"] ~ time_data_tax$trial[
 
 # Taxidermy plot (Methods) ------------------------------------------------
 
-change_data <- read.csv("change_in_calls.csv") %>% 
-  pivot_longer(cols = Taxidermy:Wild,
-               values_to = "change",
-               names_to = "Specimen") %>% 
-  filter(Call != "Total") %>% 
-  mutate(Call = as.factor(Call),
-         Specimen = as.factor(Specimen)) 
+change_data <- combined_data_long %>% 
+  group_by(before_after, audio_marker) %>% 
+  pivot_longer(cols = CC:TQ, names_to = "call_type", values_to = "call_frequency") %>% 
+  pivot_wider(names_from = before_after, values_from = call_frequency) %>% 
+  replace(is.na(.), 0) %>% 
+  mutate(difference_before_after = a-b) %>% 
+  ungroup() %>% 
+  group_by(stimuli_type, taxidermy_wild, call_type) %>% 
+  summarise(mean_difference_before_after = mean(difference_before_after)) %>% 
+  mutate(call_type = gsub(x = call_type, pattern = "_per_time", replacement = "")) %>% 
+  ungroup()
 
-change_plot <- change_data %>% 
-  ggplot(aes(x = fct_inorder(Call),
-             y = change,
-             group = Specimen,
-             fill = Specimen)) +
-  geom_col(position = "dodge") +
+change_plot <- change_data_new %>% 
+  group_by(taxidermy_wild, call_type) %>% 
+  summarise(mean_difference_before_after = mean(mean_difference_before_after)) %>% 
+  mutate(taxidermy_wild = gsub(x = taxidermy_wild, pattern = "t", replacement = "T"),
+         taxidermy_wild = gsub(x = taxidermy_wild, pattern = "w", replacement = "W")) %>% 
+  ggplot(aes(x = call_type,
+             y = mean_difference_before_after,
+             group = taxidermy_wild,
+             fill = taxidermy_wild)) +
+  geom_col(position = "dodge",
+           color = "black",
+           lwd = 0.4) +
   theme_bw() +
   xlab("Call Type") +
-  ylab("Change in Frequency After Stimuli Reveal")
+  ylab("Change in Call Frequency After Stimuli Reveal") +
+  labs(fill = "Stimuli Type") +
+  geom_hline(yintercept = 0, lwd = 0.4) +
+  scale_fill_manual(values=c("#661100","#117733"))
 
 change_plot
 
-summary(lm(change_data$change~ change_data$Specimen))
-t.test(change_data$change~ change_data$Specimen)
+ggsave("change_plot.jpg", height = 6.8, width = 6.8, units = "in")
+
+change_model <- lmer(mean_difference_before_after ~ call_type + (1|stimuli_type) * (1|taxidermy_wild), data = change_data)
+
+summary(change_model)
+
+# explain that whilst there are no significant differences, taxidermy has a visual impact on calls produced before/after with 50% being the opposite effect to wild stimuli. 
+# therefore taxidermy is included as a random effect but the reality of its responses should be tested before being used in similar studies.
+# stronger evidence is required to validate this
 
 # Island Effect PCA (Methods) -------------------------------------------------------
 
