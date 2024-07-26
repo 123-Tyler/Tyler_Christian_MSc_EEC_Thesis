@@ -7,6 +7,8 @@ library(cluster)
 library(lme4)
 library(patchwork)
 library(MCMCglmm)
+library(stats)
+library(parallel)
 
 # data --------------------------------------------------------------------
 
@@ -145,7 +147,41 @@ calls_long_mean_no_stimuli <- calls_long_stimuli %>%
   add_row(before_after = "Before", call_type = "HA", mean = 0) %>% 
   add_row(before_after = "Before", call_type = "TQ", mean = 0)
 
-# Dendrogram --------------------------------------------------------------
+combined_data_long <- combined_data %>% 
+  group_by(audio_marker, before_after, site) %>% 
+  mutate(wild_starling = ifelse(wild_starling == 0,
+                                NA,
+                                "starling"),
+         wild_corvid = ifelse(wild_corvid == 0,
+                              NA,
+                              "corvid"),
+         wild_gull = ifelse(wild_gull == 0,
+                            NA,
+                            "gull"),
+         wild_raptor = ifelse(wild_raptor == 0,
+                              NA,
+                              "raptor"),
+         human_disturbance = ifelse(human_disturbance == 0,
+                                    NA,
+                                    "human")) %>% 
+  pivot_longer(cols = c(wild_starling:human_disturbance, taxidermy_present), 
+               names_to = "stimuli",
+               values_to = "stimuli_type") %>%
+  na.omit() %>% 
+  mutate(taxidermy_wild = ifelse(stimuli_type == "sparrow_taxidermy",
+                                 "taxidermy",
+                                 ifelse(stimuli_type == "woodpecker_taxidermy",
+                                        "taxidermy",
+                                        ifelse(stimuli_type == "starling_taxidermy",
+                                               "taxidermy",
+                                               ifelse(stimuli_type == "sparrowhawk_taxidermy",
+                                                      "taxidermy",
+                                                      ifelse(stimuli_type == "empty_taxidermy",
+                                                             "taxidermy",
+                                                             "wild")))))) %>% 
+  ungroup()
+
+# Dendrogram All Columns --------------------------------------------------------------
 
 # Aggregate the data, filtering for lundy and removing HQ (only 1 sample but I don't want to delete data just incase)
 aggregated_data <- best_calls %>% 
@@ -166,8 +202,134 @@ dist_matrix <- dist(data_scaled,
 hc <- hclust(dist_matrix, 
                  method = "ward.D2")
 
+# cophenetic correlation coefficient: 
+coph_corr <- cor(cophenetic(hc), dist(aggregated_data))
+coph_corr # acceptable
+
+### The cophenetic correlation coefficient measures how faithfully a dendrogram preserves the pairwise distances between the original data points. A higher value indicates a better representation of the data.
+# 0-0.5 bad
+# 0.5-0.75 acceptable
+# 0.75-1.0 very good
+
+# Dendrogram Iterations --------------------------------------------------
+
+### May take a while to run
+
+# Define the column groups
+column_groups <- list(
+  c(7, 14, 21),
+  c(9, 16, 23),
+  c(10, 17, 24),
+  c(11, 18, 25),
+  c(12, 19, 26),
+  c(13, 20, 27)
+)
+
+# Optional column
+optional_column <- 6
+
+# Function to calculate the cophenetic correlation coefficient for a given set of columns
+calculate_cophenetic_corr <- function(data, columns) {
+  data_scaled <- scale(data %>% select(all_of(columns)))
+  dist_matrix <- dist(data_scaled, method = "euclidean")
+  hc <- hclust(dist_matrix, method = "ward.D2")
+  cophenetic_corr <- cor(cophenetic(hc), dist(dist_matrix))
+  return(cophenetic_corr)
+}
+
+# Generate all combinations of columns from the groups
+generate_combinations <- function(groups, optional) {
+  all_combinations <- expand.grid(lapply(groups, function(group) group))
+  colnames(all_combinations) <- paste0("V", 1:ncol(all_combinations))
+  combinations_with_optional <- rbind(
+    cbind(Optional = optional, all_combinations),
+    cbind(Optional = NA, all_combinations)
+  )
+  return(combinations_with_optional)
+}
+
+# Find the best combination of columns
+best_combination <- NULL
+best_cophenetic_corr <- -Inf
+
+# Generate all possible combinations
+column_combinations <- generate_combinations(column_groups, optional_column)
+total_combinations <- nrow(column_combinations)
+current_combination <- 0
+
+# Function to process each combination
+process_combination <- function(i) {
+  combination <- na.omit(as.numeric(column_combinations[i, ]))
+  cophenetic_corr <- calculate_cophenetic_corr(aggregated_data, combination)
+  return(list(combination = combination, cophenetic_corr = cophenetic_corr))
+}
+
+# Counter function to print progress
+counter_function <- function(i) {
+  current_combination <<- current_combination + 1
+  cat("Processing combination", current_combination, "of", total_combinations, "\n")
+  return(process_combination(i))
+}
+
+# Run the combinations in parallel using parLapply
+num_cores <- detectCores() - 1
+cl <- makeCluster(num_cores)
+
+# Load necessary libraries and export objects to each node in the cluster
+clusterEvalQ(cl, {
+  library(dplyr)
+  library(stats)
+})
+clusterExport(cl, list("column_combinations", "calculate_cophenetic_corr", "aggregated_data", "process_combination", "current_combination", "total_combinations"))
+
+# Run the combinations in parallel
+results <- parLapply(cl, 1:total_combinations, function(i) {
+  current_combination <<- current_combination + 1
+  cat("Processing combination", current_combination, "of", total_combinations, "\n")
+  return(process_combination(i))
+})
+
+stopCluster(cl)
+
+# Find the best result
+for (result in results) {
+  if (result$cophenetic_corr > best_cophenetic_corr) {
+    best_cophenetic_corr <- result$cophenetic_corr
+    best_combination <- result$combination
+  }
+}
+
+# Print the best combination of columns and the corresponding cophenetic correlation coefficient
+cat("Best combination of columns:", best_combination, "\n")
+cat("Best cophenetic correlation coefficient:", best_cophenetic_corr, "\n")
+
+### Output:
+# Best combination of columns: 14 23 17 18 26 27 
+# Best cophenetic correlation coefficient: 0.8334661 
+
+# Optimised Dendrogram (Final) ----------------------------------------------------
+
+# Aggregate the data, filtering for lundy and removing HQ (only 1 sample but I don't want to delete data just incase)
+aggregated_data_optimised <- best_calls %>% 
+  filter(site == "lundy")
+
+# View the aggregated data
+print(aggregated_data_optimised)
+
+# Standardize the data
+data_scaled_optimised <- scale(aggregated_data_optimised %>%
+                       select(c(14,23,17,18,26,27)))
+
+# Calculate the distance matrix
+dist_matrix_optimised <- dist(data_scaled_optimised, 
+                    method = "euclidean")
+
+# Perform hierarchical clustering
+hc_optimised <- hclust(dist_matrix_optimised, 
+             method = "ward.D2")
+
 # Set colour groups per call
-aggregated_data <- aggregated_data %>% 
+aggregated_data_optimised <- aggregated_data_optimised %>% 
   mutate(color_call = ifelse(call == "CA",
                              "#88ccee",
                              ifelse(call == "CC",
@@ -187,25 +349,24 @@ aggregated_data <- aggregated_data %>%
   ) %>% 
   mutate(color_call = as.factor(color_call))
 
-
 # Enhanced dendrogram visualization with color-coded nodes by call 
 # (only the colours at the bottom have any meaning, see attached ppt for interpretation)
-dendrogram <- 
+dendrogram_optimised <- 
   fviz_dend(
-  hc,
-  rect = FALSE,
-  cex = 0.5,
-  lwd = 0.5,
-  k_colors = "black",
-  labels_track_height = 0.8,
-  show_labels = TRUE,
-  label_cols = aggregated_data$color_call
-) +
+    hc_optimised,
+    rect = FALSE,
+    cex = 0.5,
+    lwd = 0.5,
+    k_colors = "black",
+    labels_track_height = 0.8,
+    show_labels = TRUE,
+    label_cols = aggregated_data_optimised$color_call
+  ) +
   theme(plot.title = element_blank()) +
   annotate(
     "rect",
     xmin = 0,
-    xmax = 45,
+    xmax = 44,
     ymin = -2,
     ymax = -1.1,
     alpha = .3,
@@ -215,15 +376,15 @@ dendrogram <-
   ) +
   annotate(
     "text",
-    x = 22.5,
+    x = 22,
     y = -1.55,
     size = 2.5,
     label = "CA"
   ) +
   annotate(
     "rect",
-    xmin = 45,
-    xmax = 96,
+    xmin = 44,
+    xmax = 95,
     ymin = -2,
     ymax = -1.1,
     alpha = .3,
@@ -233,15 +394,15 @@ dendrogram <-
   ) +
   annotate(
     "text",
-    x = 70.5,
+    x = 69.5,
     y = -1.55,
     size = 2.5,
     label = "CC"
   ) +
   annotate(
     "rect",
-    xmin = 96,
-    xmax = 101,
+    xmin = 95,
+    xmax = 103,
     ymin = -2,
     ymax = -1.1,
     alpha = .3,
@@ -251,15 +412,15 @@ dendrogram <-
   ) +
   annotate(
     "text",
-    x = 98.5,
+    x = 99,
     y = -1.55,
     size = 2.5,
     label = "NC"
   ) +
   annotate(
     "rect",
-    xmin = 101,
-    xmax = 117,
+    xmin = 103,
+    xmax = 118,
     ymin = -2,
     ymax = -1.1,
     alpha = .3,
@@ -269,15 +430,15 @@ dendrogram <-
   ) +
   annotate(
     "text",
-    x = 109,
+    x = 110.5,
     y = -1.55,
     size = 2.5,
     label = "CA"
   ) +
   annotate(
     "rect",
-    xmin = 117,
-    xmax = 127,
+    xmin = 118,
+    xmax = 125,
     ymin = -2,
     ymax = -1.1,
     alpha = .3,
@@ -287,14 +448,14 @@ dendrogram <-
   ) +
   annotate(
     "text",
-    x = 122,
+    x = 121.5,
     y = -1.55,
     size = 2.5,
     label = "DW"
   ) +
   annotate(
     "rect",
-    xmin = 127,
+    xmin = 125,
     xmax = 137,
     ymin = -2,
     ymax = -1.1,
@@ -305,7 +466,7 @@ dendrogram <-
   )  +
   annotate(
     "text",
-    x = 132,
+    x = 131,
     y = -1.55,
     size = 2.5,
     label = "HA"
@@ -385,7 +546,7 @@ dendrogram <-
   annotate(
     "rect",
     xmin = 0,
-    xmax = 45,
+    xmax = 50,
     ymin = -3.2,
     ymax = -2.3,
     alpha = .5,
@@ -395,15 +556,15 @@ dendrogram <-
   ) +
   annotate(
     "text",
-    x = 22.5,
+    x = 25,
     y = -2.75,
     size = 2.5,
-    label = "CA"
+    label = (bold("1:") ~ " CA")
   ) +
   annotate(
     "rect",
-    xmin = 45,
-    xmax = 96,
+    xmin = 50,
+    xmax = 109,
     ymin = -3.2,
     ymax = -2.3,
     alpha = .5,
@@ -413,14 +574,14 @@ dendrogram <-
   ) +
   annotate(
     "text",
-    x = 70.5,
+    x = 79.5,
     y = -2.75,
     size = 2.5,
-    label = "CC"
+    label = (bold("2:") ~ " CC")
   ) +
   annotate(
     "rect",
-    xmin = 96,
+    xmin = 109,
     xmax = 167,
     ymin = -3.2,
     ymax = -2.3,
@@ -431,17 +592,17 @@ dendrogram <-
   ) +
   annotate(
     "text",
-    x = 131.5,
+    x = 138,
     y = -2.75,
     size = 2.5,
-    label = "Other"
+    label = (bold("3:") ~ " Other")
   ) +
   annotate(
     "rect",
     xmin = 158,
     xmax = 169,
-    ymin = 26.5,
-    ymax = 33.5,
+    ymin = 17.5,
+    ymax = 24.5,
     color = "black",
     fill = "white",
     lwd = 0.3
@@ -449,7 +610,7 @@ dendrogram <-
   annotate(
     "text",
     x = 163,
-    y = 33,
+    y = 24,
     size = 3.7,
     label = 'bold(" Key:")',
     parse = TRUE
@@ -457,7 +618,7 @@ dendrogram <-
   annotate(
     "text",
     x = 163,
-    y = 32,
+    y = 23,
     size = 3.7,
     label = "CC",
     color = "#661100"
@@ -465,7 +626,7 @@ dendrogram <-
   annotate(
     "text",
     x = 163,
-    y = 31,
+    y = 22,
     size = 3.7,
     label = "NC",
     color = "#e31a1c"
@@ -473,7 +634,7 @@ dendrogram <-
   annotate(
     "text",
     x = 163,
-    y = 30,
+    y = 21,
     size = 3.7,
     label = "CA",
     color = "#88ccee"
@@ -481,7 +642,7 @@ dendrogram <-
   annotate(
     "text",
     x = 163,
-    y = 29,
+    y = 20,
     size = 3.7,
     label = "TQ",
     color = "#aa4499"
@@ -489,7 +650,7 @@ dendrogram <-
   annotate(
     "text",
     x = 163,
-    y = 28,
+    y = 19,
     size = 3.7,
     label = "HA",
     color = "#999933"
@@ -497,7 +658,7 @@ dendrogram <-
   annotate(
     "text",
     x = 163,
-    y = 27,
+    y = 18,
     size = 3.7,
     label = "DW",
     color = "#117733"
@@ -517,18 +678,9 @@ dendrogram <-
     label = "Major"
   )
 
-dendrogram
+dendrogram_optimised
 
-ggsave("dendrogram.jpg", width = 6.8, height = 6.5, units = "in")
-
-coph_corr <- cor(cophenetic(hc), dist(aggregated_data))
-coph_corr # acceptable
-
-# The cophenetic correlation coefficient measures how faithfully a dendrogram preserves the pairwise distances between the original data points. A higher value indicates a better representation of the data.
-
-# 0-0.5 bad
-# 0.5-0.75 acceptable
-# 0.75-1.0 very good
+ggsave("dendrogram_optimised.jpg", width = 6.8, height = 6.5, units = "in")
 
 # LM ----------------------------------------------------------------------
 
@@ -539,122 +691,6 @@ plot(combined_data$HA_per_time)
 plot(combined_data$TQ_per_time)
 plot(combined_data$DW_per_time)
 # not normally distributed, therefore use GLM
-
-combined_data_no_tax <- combined_data %>% 
-  filter(open == 0)
-
-summary(glm(combined_data$CC_per_time ~ combined_data$before_after))
-summary(glm(combined_data$NC_per_time ~ combined_data$before_after))
-summary(glm(combined_data$CA_per_time ~ combined_data$before_after))
-summary(glm(combined_data$HA_per_time ~ combined_data$before_after))
-summary(glm(combined_data$TQ_per_time ~ combined_data$before_after))
-summary(glm(combined_data$DW_per_time ~ combined_data$before_after))
-
-combined_data_long <- combined_data %>% 
-  group_by(audio_marker, before_after, site) %>% 
-  mutate(wild_starling = ifelse(wild_starling == 0,
-                                NA,
-                                "starling"),
-         wild_corvid = ifelse(wild_corvid == 0,
-                              NA,
-                              "corvid"),
-         wild_gull = ifelse(wild_gull == 0,
-                            NA,
-                            "gull"),
-         wild_raptor = ifelse(wild_raptor == 0,
-                              NA,
-                              "raptor"),
-         human_disturbance = ifelse(human_disturbance == 0,
-                                    NA,
-                                    "human")) %>% 
-  pivot_longer(cols = c(wild_starling:human_disturbance, taxidermy_present), 
-               names_to = "stimuli",
-               values_to = "stimuli_type") %>%
-  na.omit() %>% 
-  mutate(taxidermy_wild = ifelse(stimuli_type == "sparrow_taxidermy",
-                                 "taxidermy",
-                                 ifelse(stimuli_type == "woodpecker_taxidermy",
-                                        "taxidermy",
-                                        ifelse(stimuli_type == "starling_taxidermy",
-                                               "taxidermy",
-                                               ifelse(stimuli_type == "sparrowhawk_taxidermy",
-                                                      "taxidermy",
-                                                      ifelse(stimuli_type == "empty_taxidermy",
-                                                             "taxidermy",
-                                                             "wild")))))) %>% 
-  ungroup()
-
-combined_data_numeric_stimuli <- combined_data %>% 
-  mutate(taxidermy_present = ifelse(taxidermy_present == "starling_taxidermy",
-                                    y = 0.4,
-                                    n = ifelse(
-                                      taxidermy_present == "woodpecker_taxidermy",
-                                      y = 0.15,
-                                      n = ifelse(
-                                        taxidermy_present == "sparrow_taxidermy",
-                                        y = 0.15,
-                                        n = ifelse(
-                                          taxidermy_present == "sparrowhawk_taxidermy",
-                                          y = 0.5,
-                                          n = ifelse(
-                                            taxidermy_present == "empty_taxidermy",
-                                            y = 0.1,
-                                            n = 0
-                                    ))))),
-         wild_starling = ifelse(wild_starling == 0,
-                                0,
-                                0.8),
-         wild_corvid = ifelse(wild_corvid == 0,
-                              0,
-                              0.9),
-         wild_gull = ifelse(wild_gull == 0,
-                            0,
-                            0.9),
-         wild_raptor = ifelse(wild_raptor == 0,
-                              0,
-                              1),
-         total_threat = wild_starling + wild_corvid + wild_gull + wild_raptor + taxidermy_present)
-
-CC_model1 <- lmer(CC_per_time ~ before_after + (1|taxidermy_present) * (1 | stimuli_type), data = combined_data_long)
-CC_model2 <- lmer(CC_per_time ~ before_after + (1|total_threat), data = combined_data_numeric_stimuli)
-CC_model3 <- lmer(CC_per_time ~ before_after + (1|taxidermy_present), data = combined_data)
-CC_model4 <- lmer(CC_per_time ~ before_after + (1|total_threat)*(1|taxidermy_present), data = combined_data_numeric_stimuli)
-CC_model5 <- lmer(CC_per_time ~ before_after + (1|total_threat)+(1|taxidermy_present), data = combined_data_numeric_stimuli)
-
-CC_model <- lmer(CC_per_time ~ before_after + (1|total_threat)*(1|taxidermy_present), data = combined_data_numeric_stimuli)
-NC_model <- lmer(NC_per_time ~ before_after + (1|total_threat)*(1|taxidermy_present), data = combined_data_numeric_stimuli)
-TQ_model <- lmer(TQ_per_time ~ before_after + (1|total_threat)*(1|taxidermy_present), data = combined_data_numeric_stimuli)
-HA_model <- lmer(HA_per_time ~ before_after + (1|total_threat)*(1|taxidermy_present), data = combined_data_numeric_stimuli)
-CA_model <- lmer(CA_per_time ~ before_after + (1|total_threat)*(1|taxidermy_present), data = combined_data_numeric_stimuli)
-DW_model <- lmer(DW_per_time ~ before_after + (1|total_threat)*(1|taxidermy_present), data = combined_data_numeric_stimuli)
-
-
-CC_model <- lmer(CC_per_time ~ before_after + (1|taxidermy_present) * (1 | stimuli_type) + (1|site), data = combined_data_long)
-NC_model <- lmer(NC_per_time ~ before_after + (1|taxidermy_present) * (1 | stimuli_type) + (1|site), data = combined_data_long)
-TQ_model <- lmer(TQ_per_time ~ before_after + (1|taxidermy_present) * (1 | stimuli_type) + (1|site), data = combined_data_long)
-HA_model <- lmer(HA_per_time ~ before_after + (1|taxidermy_present) * (1 | stimuli_type) + (1|site), data = combined_data_long)
-CA_model <- lmer(CA_per_time ~ before_after + (1|taxidermy_present) * (1 | stimuli_type) + (1|site), data = combined_data_long)
-DW_model <- lmer(DW_per_time ~ before_after + (1|taxidermy_present) * (1 | stimuli_type) + (1|site), data = combined_data_long)
-
-combined_data_numeric_stimuli <- combined_data_numeric_stimuli %>% 
-  filter(total_threat > 0.5)
-
-CC_model <- glm(CC_per_time ~ before_after, data = combined_data_numeric_stimuli)
-NC_model <- glm(NC_per_time ~ before_after, data = combined_data_numeric_stimuli)
-TQ_model <- glm(TQ_per_time ~ before_after, data = combined_data_numeric_stimuli)
-HA_model <- glm(HA_per_time ~ before_after, data = combined_data_numeric_stimuli)
-CA_model <- glm(CA_per_time ~ before_after, data = combined_data_numeric_stimuli)
-DW_model <- glm(DW_per_time ~ before_after, data = combined_data_numeric_stimuli)
-
-
-summary(CC_model)
-summary(NC_model)
-summary(TQ_model)
-summary(HA_model)
-summary(CA_model)
-summary(DW_model)
-
-lrtest(CC_model2, CC_model4)
 
 ### use these ###
 # explain taxidermy and stimuli may impact behavior and are thus random variables
@@ -667,14 +703,19 @@ HA_model <- lmer(HA_per_time ~ before_after + (1|taxidermy_wild) * (1 | stimuli_
 CA_model <- lmer(CA_per_time ~ before_after + (1|taxidermy_wild) * (1 | stimuli_type) + (1|site), data = combined_data_long)
 DW_model <- lmer(DW_per_time ~ before_after + (1|taxidermy_wild) * (1 | stimuli_type) + (1|site), data = combined_data_long)
 
-CC_model <- lmer(CC ~ before_after + (1|taxidermy_present), data = combined_data)
-
 summary(CC_model)
 summary(NC_model)
 summary(TQ_model)
 summary(HA_model)
 summary(CA_model)
 summary(DW_model)
+
+plot(CC_model)
+plot(NC_model)
+plot(TQ_model)
+plot(HA_model)
+plot(CA_model)
+plot(DW_model)
 
 # Before/After plot -------------------------------------------------------
 
@@ -689,59 +730,30 @@ before_after_plot <- calls_long_mean_no_stimuli %>%
   geom_line() +
   ylab("Mean Call Frequency") +
   labs(color = "Call Type") +
-  theme(axis.title.x = element_blank())
+  theme_bw() +
+  theme(axis.title.x = element_blank()) +
+  scale_color_manual(values = c("#88ccee","#661100","#117733","#999933","#e31a1c","#aa4499" ))
 
 before_after_plot
 
-# takes mean call frequency for all wild stimuli on lundy before and after appearance
-
-### repeat for each type of wild stimuli???
-
-# Calls over time ---------------------------------------------------------
-
-time_data_tax <- calls_long_taxidermy %>% 
-  separate(audio_marker,
-           into = c("trial", "observation"),
-           sep = "_") %>%
-  mutate(trial = as.numeric(trial)) %>% 
-  group_by(trial, call_type) 
-
-time_plot <- time_data_tax %>% 
-  ggplot(aes(x = trial,
-             y = n,
-             group = call_type,
-             color = call_type)) +
-  geom_smooth(se = FALSE, method = "lm") +
-  geom_point()
-
-time_plot # do calls decrease with time? 
-
-summary(lm(time_data_tax$n[time_data_tax$call_type=="CC"] ~ time_data_tax$trial[time_data_tax$call_type=="CC"]))
-summary(lm(time_data_tax$n[time_data_tax$call_type=="TQ"] ~ time_data_tax$trial[time_data_tax$call_type=="TQ"]))
-summary(lm(time_data_tax$n[time_data_tax$call_type=="HA"] ~ time_data_tax$trial[time_data_tax$call_type=="HA"]))
-summary(lm(time_data_tax$n[time_data_tax$call_type=="CA"] ~ time_data_tax$trial[time_data_tax$call_type=="CA"]))
-summary(lm(time_data_tax$n[time_data_tax$call_type=="DW"] ~ time_data_tax$trial[time_data_tax$call_type=="DW"]))
-
-# CC has a significant decrease over time (all others insignificant)
-# y = -0.796x + 21.080 
-# R = 0.348 (poor fit)
-
+ggsave("before_after_plot.jpg", height = 7.5, width = 6.8, units = "in")
 
 # Taxidermy plot (Methods) ------------------------------------------------
 
 change_data <- combined_data_long %>% 
+  filter(stimuli_type == c("starling", "starling_taxidermy")) %>% 
   group_by(before_after, audio_marker) %>% 
   pivot_longer(cols = CC:TQ, names_to = "call_type", values_to = "call_frequency") %>% 
   pivot_wider(names_from = before_after, values_from = call_frequency) %>% 
   replace(is.na(.), 0) %>% 
   mutate(difference_before_after = a-b) %>% 
   ungroup() %>% 
-  group_by(stimuli_type, taxidermy_wild, call_type) %>% 
+  group_by(site, taxidermy_wild, call_type) %>% 
   summarise(mean_difference_before_after = mean(difference_before_after)) %>% 
   mutate(call_type = gsub(x = call_type, pattern = "_per_time", replacement = "")) %>% 
   ungroup()
 
-change_plot <- change_data_new %>% 
+change_plot <- change_data %>% 
   group_by(taxidermy_wild, call_type) %>% 
   summarise(mean_difference_before_after = mean(mean_difference_before_after)) %>% 
   mutate(taxidermy_wild = gsub(x = taxidermy_wild, pattern = "t", replacement = "T"),
@@ -764,7 +776,7 @@ change_plot
 
 ggsave("change_plot.jpg", height = 6.8, width = 6.8, units = "in")
 
-change_model <- lmer(mean_difference_before_after ~ call_type + (1|stimuli_type) * (1|taxidermy_wild), data = change_data)
+change_model <- lm(mean_difference_before_after ~ call_type * taxidermy_wild, data = change_data)
 
 summary(change_model)
 
@@ -772,7 +784,7 @@ summary(change_model)
 # therefore taxidermy is included as a random effect but the reality of its responses should be tested before being used in similar studies.
 # stronger evidence is required to validate this
 
-# Island Effect PCA (Methods) -------------------------------------------------------
+# Island Effect PCA (SI) -------------------------------------------------------
 
 ### There seems to be no island effect (PCA clustered through calls, not location). 
 ### Maybe don't mention island effect at all???
