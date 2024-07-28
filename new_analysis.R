@@ -213,7 +213,11 @@ coph_corr # acceptable
 
 # Dendrogram Iterations --------------------------------------------------
 
-### May take a while to run
+### Warning: DO NOT RUN!!! ###
+### May take 30 min to run!!!
+### You have been warned!!!
+
+# Uses parallel processing (much faster than loops but still slow)
 
 # Define the column groups
 column_groups <- list(
@@ -595,7 +599,7 @@ dendrogram_optimised <-
     x = 138,
     y = -2.75,
     size = 2.5,
-    label = (bold("3:") ~ " Other")
+    label = (bold("3:") ~ " Mixed")
   ) +
   annotate(
     "rect",
@@ -680,28 +684,33 @@ dendrogram_optimised <-
 
 dendrogram_optimised
 
-ggsave("dendrogram_optimised.jpg", width = 6.8, height = 6.5, units = "in")
+ggsave("dendrogram_optimised.jpg", width = 10.4, height = 6, units = "in")
 
-# LM ----------------------------------------------------------------------
+# LM of call frequencies ----------------------------------------------------------------------
 
-plot(combined_data$CC_per_time)
-plot(combined_data$NC_per_time)
-plot(combined_data$CA_per_time) 
-plot(combined_data$HA_per_time)
-plot(combined_data$TQ_per_time)
-plot(combined_data$DW_per_time)
+combined_data_long_binary_ba <- combined_data_long %>% 
+  mutate(before_after = gsub(x = before_after, pattern = "b", replacement = "0"),
+         before_after = gsub(x = before_after, pattern = "a", replacement = "1"))
+
+plot(combined_data_long$CC_per_time)
+plot(combined_data_long$NC_per_time)
+plot(combined_data_long$CA_per_time) 
+plot(combined_data_long$HA_per_time)
+plot(combined_data_long$TQ_per_time)
+plot(combined_data_long$DW_per_time)
 # not normally distributed, therefore use GLM
 
 ### use these ###
 # explain taxidermy and stimuli may impact behavior and are thus random variables
 # site may have some impacts and is thus random (link to potential island effect but not too much detail)
 
-CC_model <- lmer(CC_per_time ~ before_after + (1|taxidermy_wild) * (1 | stimuli_type) + (1|site), data = combined_data_long)
-NC_model <- lmer(NC_per_time ~ before_after + (1|taxidermy_wild) * (1 | stimuli_type) + (1|site), data = combined_data_long)
-TQ_model <- lmer(TQ_per_time ~ before_after + (1|taxidermy_wild) * (1 | stimuli_type) + (1|site), data = combined_data_long)
-HA_model <- lmer(HA_per_time ~ before_after + (1|taxidermy_wild) * (1 | stimuli_type) + (1|site), data = combined_data_long)
-CA_model <- lmer(CA_per_time ~ before_after + (1|taxidermy_wild) * (1 | stimuli_type) + (1|site), data = combined_data_long)
-DW_model <- lmer(DW_per_time ~ before_after + (1|taxidermy_wild) * (1 | stimuli_type) + (1|site), data = combined_data_long)
+CC_model <- lmer(CC_per_time ~ before_after + (1|taxidermy_wild) + (1|site), data = combined_data_long_binary_ba)
+NC_model <- lmer(NC_per_time ~ before_after + (1|taxidermy_wild) + (1|site), data = combined_data_long_binary_ba)
+TQ_model <- lmer(TQ_per_time ~ before_after + (1|taxidermy_wild) + (1|site), data = combined_data_long_binary_ba)
+HA_model <- lmer(HA_per_time ~ before_after + (1|taxidermy_wild) + (1|site), data = combined_data_long_binary_ba)
+CA_model <- lmer(CA_per_time ~ before_after + (1|taxidermy_wild) + (1|site), data = combined_data_long_binary_ba)
+DW_model <- lmer(DW_per_time ~ before_after + (1|taxidermy_wild) + (1|site), data = combined_data_long_binary_ba)
+
 
 summary(CC_model)
 summary(NC_model)
@@ -716,6 +725,22 @@ plot(TQ_model)
 plot(HA_model)
 plot(CA_model)
 plot(DW_model)
+
+as_flextable(CC_model)
+
+### maybe do this instead if it works???
+
+mcmc_test <- MCMCglmm(cbind(c(CC_per_time, NC_per_time, TQ_per_time, HA_per_time, CA_per_time, DW_per_time)) ~
+                        trait - 1 : trait:before_after,
+                      #random = ~ taxidermy_wild * stimuli_type,
+                      rcov =  ~ idh(trait):units,
+                      family = c("gaussian", "gaussian", "gaussian", "gaussian", "gaussian", "gaussian"),
+                      data = combined_data,
+                      #prior = prior1,
+                      verbose = TRUE,
+                      nitt = 100000)
+
+summary(mcmc_test)
 
 # Before/After plot -------------------------------------------------------
 
@@ -732,6 +757,7 @@ before_after_plot <- calls_long_mean_no_stimuli %>%
   labs(color = "Call Type") +
   theme_bw() +
   theme(axis.title.x = element_blank()) +
+  scale_x_discrete(limits=rev) +
   scale_color_manual(values = c("#88ccee","#661100","#117733","#999933","#e31a1c","#aa4499" ))
 
 before_after_plot
@@ -776,9 +802,42 @@ change_plot
 
 ggsave("change_plot.jpg", height = 6.8, width = 6.8, units = "in")
 
+# combined model: 
+
 change_model <- lm(mean_difference_before_after ~ call_type * taxidermy_wild, data = change_data)
 
 summary(change_model)
+
+as_flextable(cc_change_model, ca_change_model)
+
+### individual models:
+
+change_data_CC <- change_data %>% 
+  filter(call_type == "CC")
+change_data_NC <- change_data %>% 
+  filter(call_type == "NC")
+change_data_TQ <- change_data %>% 
+  filter(call_type == "TQ")
+change_data_HA <- change_data %>% 
+  filter(call_type == "HA")
+change_data_CA <- change_data %>% 
+  filter(call_type == "CA")
+change_data_DW <- change_data %>% 
+  filter(call_type == "DW")
+
+cc_change_model <- lm(mean_difference_before_after ~ taxidermy_wild, data = change_data_CC)
+nc_change_model <- lm(mean_difference_before_after ~ taxidermy_wild, data = change_data_NC)
+tq_change_model <- lm(mean_difference_before_after ~ taxidermy_wild, data = change_data_TQ)
+ha_change_model <- lm(mean_difference_before_after ~ taxidermy_wild, data = change_data_HA)
+ca_change_model <- lm(mean_difference_before_after ~ taxidermy_wild, data = change_data_CA)
+dw_change_model <- lm(mean_difference_before_after ~ taxidermy_wild, data = change_data_DW)
+
+summary(cc_change_model)
+summary(nc_change_model)
+summary(tq_change_model)
+summary(ha_change_model)
+summary(ca_change_model)
+summary(dw_change_model)
 
 # explain that whilst there are no significant differences, taxidermy has a visual impact on calls produced before/after with 50% being the opposite effect to wild stimuli. 
 # therefore taxidermy is included as a random effect but the reality of its responses should be tested before being used in similar studies.
@@ -870,4 +929,3 @@ final_pca_plot <- site_ellipses +
 
 # Display the plot
 print(final_pca_plot)
-
