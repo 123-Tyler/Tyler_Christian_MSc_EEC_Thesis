@@ -51,7 +51,7 @@ koe_data <- read.csv("koe_data.csv", na.strings = "") %>%
     before_after = as.factor(before_after),
     site = as.factor(site),
     site = gsub(x = site, pattern = "ascot", replacement = "mainland"),
-    site = gsub(x = site, pattern = "nan", replacement = "mainland")
+    site = gsub(x = site, pattern = "essex", replacement = "mainland")
   ) %>%
   mutate( 
     CC_per_time = CC / duration, # standardizing call frequencies according to audio clip duration
@@ -73,7 +73,7 @@ behaviour_data <- read.csv("behavioural_data.csv") %>%
     time = as.factor(time),
     taxidermy_present = as.factor(taxidermy_present),
     site = gsub(x = site, pattern = "ascot", replacement = "mainland"), # combining data from the 2 mainland sites to ensure a reasonable sample size
-    site = gsub(x = site, pattern = "nan", replacement = "mainland")
+    site = gsub(x = site, pattern = "essex", replacement = "mainland")
   ) %>%
   filter(usable_stimuli == "x") %>% # filterning for observations marked as usable (i.e. meet the stimuli requirements)
   select(
@@ -146,7 +146,7 @@ calls_long <- read.csv("koe_data.csv", na.strings = "") %>%
     across(call_type, ~ str_remove_all(., '"')),
     across(call_type, ~ str_remove_all(., '_')),
     site = gsub(x = site, pattern = "ascot", replacement = "mainland"),
-    site = gsub(x = site, pattern = "nan", replacement = "mainland")
+    site = gsub(x = site, pattern = "essex", replacement = "mainland")
   ) %>%
   filter(site == "lundy") %>% 
   select(audio_marker, before_after, site, call_type, duration) %>%
@@ -690,7 +690,7 @@ summary(DW_change_model)
 
 call_pca_data <- best_calls %>% 
   mutate(site = gsub(x = site, pattern = "ascot", replacement = "Mainland"),
-         site = gsub(x = site, pattern = "nan", replacement = "Mainland"),
+         site = gsub(x = site, pattern = "essex", replacement = "Mainland"),
          site = gsub(x = site, pattern = "lundy", replacement = "Lundy"))
 
 call_pca <- princomp(call_pca_data[, c(14,23,17,18,26,27)], # remove duration and peak amplitude
