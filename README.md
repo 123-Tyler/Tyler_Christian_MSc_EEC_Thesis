@@ -91,7 +91,7 @@
         -   individual - Identification number addeded by the software
         -   track - Identification number addeded by the software
         -   sequence - Order of segments containing identified house sparrow calls
-        -   note -n[UNUSED]
+        -   note -[UNUSED]
 -   Fig_3.1.1_taxidermy_plot.jpeg
     -   Histogram displaying the change in mean call frequencies before and after taxidermy and wild starling stimuli.
 -   Fig_3.2.1_dendrogram_optimised.jpeg
