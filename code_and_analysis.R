@@ -31,7 +31,7 @@ best_calls <- read.csv("avisoft_data.csv") %>%
   )
 
 # Amounts of calls per audio clip segmented using Koe
-koe_data <- read.csv("koe_song_details.csv", na.strings = "") %>%
+koe_data <- read.csv("koe_data.csv", na.strings = "") %>%
   mutate(call_type = sequence) %>%
   filter(quality != "INVALID") %>%
   group_by(filename) %>%
@@ -134,7 +134,7 @@ combined_data_long_binary_ba <- combined_data_long %>%
          before_after = gsub(x = before_after, pattern = "a", replacement = "1"))
 
 # used for creating Fig. 3.3.1
-calls_long <- read.csv("koe_song_details.csv", na.strings = "") %>%
+calls_long <- read.csv("koe_data.csv", na.strings = "") %>%
   mutate(call_type = sequence) %>%
   filter(quality != "INVALID") %>%
   group_by(filename) %>%
