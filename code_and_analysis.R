@@ -1,6 +1,6 @@
 # Set Up ------------------------------------------------------------------
 
-# Edit required
+# Edit as required
 getwd()
 setwd("C:/Users/fishm/OneDrive/Documents/MSc EEC/Thesis/Results/all_analysis/Tyler_Christian_MSc_EEC_Thesis")
 
